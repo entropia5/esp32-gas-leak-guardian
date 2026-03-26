@@ -1,63 +1,85 @@
 #include <Arduino.h>
 
-const int mqSensorPin = 34;
-const int redLed = 13;
-const int greenLed = 27;
-const int buzzerPin = 12;
+const byte MQ_PIN = 34;
+const byte RED_LED = 13;
+const byte GREEN_LED = 27;
+const byte BUZZER_PIN = 12;
 
-int alarmOn = 1500;
-int alarmOff = 1200;
+const int ALARM_ON = 1600;
+const int ALARM_OFF = 1400;
+const float FILTER_K = 0.4;
+
+const int BUZZ_FREQ = 400;
+const int BUZZ_RES = 8; // 8 бит
+
+float filteredValue = 0;
 bool isAlarmActive = false;
+unsigned long lastUpdate = 0;
+unsigned long lastBlink = 0;
 
 void setup()
 {
   Serial.begin(115200);
-  pinMode(mqSensorPin, INPUT);
-  pinMode(redLed, OUTPUT);
-  pinMode(greenLed, OUTPUT);
-  pinMode(buzzerPin, OUTPUT);
+  pinMode(MQ_PIN, INPUT);
+  pinMode(RED_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+
+  ledcAttach(BUZZER_PIN, BUZZ_FREQ, BUZZ_RES);
+
+  Serial.println("Система запущена...");
+  filteredValue = analogRead(MQ_PIN);
 }
 
 void loop()
 {
+  unsigned long currentMillis = millis();
 
-  int rawValue = 0;
-  for (int i = 0; i < 10; i++)
+  if (currentMillis - lastUpdate >= 50)
   {
-    rawValue += analogRead(mqSensorPin);
-    delay(10);
+    int rawValue = analogRead(MQ_PIN);
+    filteredValue = filteredValue + FILTER_K * (rawValue - filteredValue);
+    lastUpdate = currentMillis;
+
+    Serial.print("Сырые данные:");
+    Serial.print(rawValue);
+    Serial.print(",Очищено:");
+    Serial.println(filteredValue);
   }
-  int currentLevel = rawValue / 10;
 
-  Serial.print("Газ: ");
-  Serial.println(currentLevel);
-
-  if (currentLevel > alarmOn)
+  if (filteredValue > ALARM_ON)
   {
     isAlarmActive = true;
   }
-  else if (currentLevel < alarmOff)
+  else if (filteredValue < ALARM_OFF)
   {
     isAlarmActive = false;
   }
 
   if (isAlarmActive)
   {
-    digitalWrite(redLed, HIGH);
-    digitalWrite(greenLed, LOW);
+    digitalWrite(GREEN_LED, LOW);
+    if (currentMillis - lastBlink >= 300)
+    {
+      lastBlink = currentMillis;
+      bool ledState = !digitalRead(RED_LED);
+      digitalWrite(RED_LED, ledState);
 
-    analogWrite(buzzerPin, 50);
-    delay(200);
-    analogWrite(buzzerPin, 0);
-    delay(200);
+      if (ledState)
+      {
+
+        ledcWrite(BUZZER_PIN, 1);
+      }
+      else
+      {
+        ledcWrite(BUZZER_PIN, 0);
+      }
+    }
   }
   else
   {
 
-    digitalWrite(redLed, LOW);
-    digitalWrite(greenLed, HIGH);
-    analogWrite(buzzerPin, 0);
+    digitalWrite(RED_LED, LOW);
+    digitalWrite(GREEN_LED, HIGH);
+    ledcWrite(BUZZER_PIN, 0);
   }
-
-  delay(200);
 }
