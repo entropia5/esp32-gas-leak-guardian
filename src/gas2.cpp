@@ -7,6 +7,8 @@ const byte MQ_PIN = 34;
 const byte RED_LED = 13;
 const byte GREEN_LED = 27;
 const byte BUZZER_PIN = 12;
+const byte BUZZER_CHANNEL = 0;
+const int BUZZER_ON_DUTY = 255; // Постоянный высокий уровень для активного зуммера.
 
 const int ALARM_ON = 3500;
 const int ALARM_OFF = 2700;
@@ -32,7 +34,9 @@ void setup()
   pinMode(RED_LED, OUTPUT);
   pinMode(GREEN_LED, OUTPUT);
 
-  ledcAttach(BUZZER_PIN, 300, 8);
+  ledcSetup(BUZZER_CHANNEL, 300, 8);
+  ledcAttachPin(BUZZER_PIN, BUZZER_CHANNEL);
+  ledcWrite(BUZZER_CHANNEL, 0);
 
   filteredValue = analogRead(MQ_PIN);
 
@@ -95,15 +99,15 @@ void loop()
       bool ledState = !digitalRead(RED_LED);
       digitalWrite(RED_LED, ledState);
       if (ledState)
-        ledcWrite(BUZZER_PIN, 1);
+        ledcWrite(BUZZER_CHANNEL, BUZZER_ON_DUTY);
       else
-        ledcWrite(BUZZER_PIN, 0);
+        ledcWrite(BUZZER_CHANNEL, 0);
     }
   }
   else
   {
     digitalWrite(RED_LED, LOW);
     digitalWrite(GREEN_LED, HIGH);
-    ledcWrite(BUZZER_PIN, 0);
+    ledcWrite(BUZZER_CHANNEL, 0);
   }
 }
